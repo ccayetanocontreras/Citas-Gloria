@@ -44,7 +44,7 @@ export default function App() {
     const users = getStoredUsers();
     return users[0] || INITIAL_USERS[0];
   });
-  const [isLoggedOut, setIsLoggedOut] = useState<boolean>(false);
+  const [isLoggedOut, setIsLoggedOut] = useState<boolean>(true);
   const [impersonatedByAdmin, setImpersonatedByAdmin] = useState<boolean>(false);
 
   // State: Appointments
