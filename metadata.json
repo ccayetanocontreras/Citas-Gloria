@@ -1,0 +1,6 @@
+{
+  "name": "Portal de Citas y Logística Leche Gloria S.A.",
+  "description": "Sistema integral de gestión de citas logísticas, programación de entregas, órdenes de compra y control de recepción en planta para Leche Gloria S.A.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
