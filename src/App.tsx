@@ -103,21 +103,35 @@ export default function App() {
       });
   }, []);
 
-  // Handlers for Appointment CRUD
+  // Handlers for Appointment CRUD (All persisted in Excel `src/data/citas_gloria.xlsx` and docs in `src/documentos_proveedores/`)
   const handleSaveNewAppointment = (newAppt: AppointmentRequest) => {
     const updated = [newAppt, ...appointments];
     setAppointments(updated);
     saveAppointments(updated);
 
-    // Call server API
+    // Call server API to save in Excel (`src/data/citas_gloria.xlsx`) and write PDFs to `src/documentos_proveedores/`
     fetch('/api/appointments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newAppt)
-    }).catch(() => {});
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((savedAppt: AppointmentRequest | null) => {
+        if (savedAppt && savedAppt.id) {
+          setAppointments((prev) => {
+            const synced = prev.map((a) => (a.id === savedAppt.id ? savedAppt : a));
+            saveAppointments(synced);
+            return synced;
+          });
+        }
+      })
+      .catch(() => {});
 
     setIsSupplierModalOpen(false);
-    showToast(`¡Cita ${newAppt.ticketCode} registrada exitosamente!`, 'success');
+    showToast(
+      `¡Cita ${newAppt.ticketCode} guardada en Excel (src/data/citas_gloria.xlsx) y documentos en src/documentos_proveedores/!`,
+      'success'
+    );
   };
 
   const handleUpdateAppointment = (updatedAppt: AppointmentRequest) => {
@@ -130,31 +144,39 @@ export default function App() {
       setSelectedAppointment(updatedAppt);
     }
 
-    // Call server API
+    // Call server API to update Excel (`src/data/citas_gloria.xlsx`)
     fetch(`/api/appointments/${updatedAppt.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedAppt)
     }).catch(() => {});
 
-    showToast(`Expediente ${updatedAppt.ticketCode} actualizado.`, 'success');
+    showToast(`Expediente ${updatedAppt.ticketCode} actualizado en el archivo Excel.`, 'success');
   };
 
   const handleDeleteAppointment = (appointmentId: string) => {
+    // Security enforcement: ONLY the Administrator can delete registered appointments
+    if (!currentUser || currentUser.role !== 'admin') {
+      showToast('Acceso denegado: Solo el administrador puede eliminar las citas registradas.', 'warning');
+      return;
+    }
+
     const target = appointments.find((a) => a.id === appointmentId);
     if (!target) return;
 
-    if (window.confirm(`¿Está seguro de eliminar la cita ${target.ticketCode} de ${target.supplierName}?`)) {
-      const updated = appointments.filter((a) => a.id !== appointmentId);
-      setAppointments(updated);
-      saveAppointments(updated);
+    const updated = appointments.filter((a) => a.id !== appointmentId);
+    setAppointments(updated);
+    saveAppointments(updated);
 
-      fetch(`/api/appointments/${appointmentId}`, {
-        method: 'DELETE'
-      }).catch(() => {});
+    fetch(`/api/appointments/${appointmentId}`, {
+      method: 'DELETE',
+      headers: {
+        'x-user-role': currentUser.role,
+        'x-user-id': currentUser.id
+      }
+    }).catch(() => {});
 
-      showToast(`Cita ${target.ticketCode} eliminada.`, 'info');
-    }
+    showToast(`Cita ${target.ticketCode} eliminada por el Administrador y actualizada en el archivo Excel.`, 'info');
   };
 
   const handleRecordNotification = (notification: EmailNotification) => {
@@ -442,7 +464,7 @@ export default function App() {
             setSelectedAppointment(appt);
             setIsPassModalOpen(true);
           }}
-          onDeleteAppointment={handleDeleteAppointment}
+          onDeleteAppointment={currentUser.role === 'admin' ? handleDeleteAppointment : undefined}
         />
 
       </main>

@@ -120,6 +120,9 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       {(file.sizeBytes / 1024).toFixed(1)} KB • {new Date(file.uploadedAt).toLocaleDateString('es-PE')}
                     </p>
+                    <p className="text-[10px] font-mono text-emerald-700 font-semibold truncate mt-0.5" title={file.storedPath || `src/documentos_proveedores/${file.name}`}>
+                      {file.storedPath || `src/documentos_proveedores/${file.name}`}
+                    </p>
                   </div>
                 </button>
               ))}
@@ -163,13 +166,13 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {currentFile.fileDataUrl && (
+                    {(currentFile.fileDataUrl || currentFile.fileUrl) && (
                       <button
                         type="button"
                         onClick={() => setViewMode(viewMode === 'preview' ? 'embedded' : 'preview')}
                         className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-[11px] font-semibold text-slate-200 transition"
                       >
-                        {viewMode === 'preview' ? 'Ver Archivo Binario' : 'Ver Ficha Oficial'}
+                        {viewMode === 'preview' ? 'Ver Archivo en src/' : 'Ver Ficha Oficial'}
                       </button>
                     )}
 
@@ -185,10 +188,10 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
                 </div>
 
                 {/* Body: Embedded PDF or Digital Sheet */}
-                {viewMode === 'embedded' && currentFile.fileDataUrl ? (
+                {viewMode === 'embedded' && (currentFile.fileDataUrl || currentFile.fileUrl) ? (
                   <div className="w-full h-[520px] bg-slate-200">
                     <iframe
-                      src={currentFile.fileDataUrl}
+                      src={currentFile.fileDataUrl || currentFile.fileUrl}
                       title={currentFile.name}
                       className="w-full h-full border-0"
                     />

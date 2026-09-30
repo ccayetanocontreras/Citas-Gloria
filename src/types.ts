@@ -59,6 +59,8 @@ export interface PdfAttachment {
   uploadedAt: string;
   documentType: 'Guía de Remisión' | 'Factura Comercial' | 'Certificado de Calidad' | 'Packing List' | 'Otro';
   fileDataUrl?: string;
+  storedPath?: string;
+  fileUrl?: string;
   totalPages?: number;
 }
 

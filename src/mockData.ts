@@ -126,6 +126,8 @@ export const INITIAL_APPOINTMENTS: AppointmentRequest[] = [
         sizeBytes: 245000,
         uploadedAt: '2026-09-21T14:32:00.000Z',
         documentType: 'Guía de Remisión',
+        storedPath: 'src/documentos_proveedores/Guia_Remision_001_004892.pdf',
+        fileUrl: '/api/documents/file/Guia_Remision_001_004892.pdf',
         totalPages: 2
       },
       {
@@ -134,6 +136,8 @@ export const INITIAL_APPOINTMENTS: AppointmentRequest[] = [
         sizeBytes: 184000,
         uploadedAt: '2026-09-21T14:33:00.000Z',
         documentType: 'Factura Comercial',
+        storedPath: 'src/documentos_proveedores/Factura_Electronica_F001_10924.pdf',
+        fileUrl: '/api/documents/file/Factura_Electronica_F001_10924.pdf',
         totalPages: 1
       },
       {
@@ -142,6 +146,8 @@ export const INITIAL_APPOINTMENTS: AppointmentRequest[] = [
         sizeBytes: 312000,
         uploadedAt: '2026-09-21T14:35:00.000Z',
         documentType: 'Certificado de Calidad',
+        storedPath: 'src/documentos_proveedores/Certificado_Calidad_Lote_8921.pdf',
+        fileUrl: '/api/documents/file/Certificado_Calidad_Lote_8921.pdf',
         totalPages: 2
       }
     ],
@@ -224,6 +230,8 @@ export const INITIAL_APPOINTMENTS: AppointmentRequest[] = [
         sizeBytes: 198000,
         uploadedAt: '2026-09-20T10:18:00.000Z',
         documentType: 'Guía de Remisión',
+        storedPath: 'src/documentos_proveedores/GR_Remitente_002_009124.pdf',
+        fileUrl: '/api/documents/file/GR_Remitente_002_009124.pdf',
         totalPages: 1
       },
       {
@@ -232,6 +240,8 @@ export const INITIAL_APPOINTMENTS: AppointmentRequest[] = [
         sizeBytes: 154000,
         uploadedAt: '2026-09-20T10:20:00.000Z',
         documentType: 'Factura Comercial',
+        storedPath: 'src/documentos_proveedores/Factura_E001_8921.pdf',
+        fileUrl: '/api/documents/file/Factura_E001_8921.pdf',
         totalPages: 1
       }
     ],
@@ -350,6 +360,8 @@ export const INITIAL_APPOINTMENTS: AppointmentRequest[] = [
         sizeBytes: 210000,
         uploadedAt: '2026-09-22T05:02:00.000Z',
         documentType: 'Guía de Remisión',
+        storedPath: 'src/documentos_proveedores/Guia_Remision_GR_001_004910.pdf',
+        fileUrl: '/api/documents/file/Guia_Remision_GR_001_004910.pdf',
         totalPages: 1
       }
     ],
@@ -583,10 +595,19 @@ export function getStoredAppointments(): AppointmentRequest[] {
     if (data) {
       const parsed: AppointmentRequest[] = JSON.parse(data);
       return parsed.map((apt) => {
+        const normalizedAttachments = (apt.pdfAttachments || []).map((att) => {
+          const safeName = att.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          return {
+            ...att,
+            storedPath: att.storedPath || `src/documentos_proveedores/${safeName}`,
+            fileUrl: att.fileUrl || `/api/documents/file/${safeName}`
+          };
+        });
         if (!apt.planningValidation) {
           const isPreConfirmed = ['confirmada', 'reprogramada', 'en_planta', 'en_atencion', 'en_descarga', 'atendido', 'liquidado', 'liquidada'].includes(apt.status);
           return {
             ...apt,
+            pdfAttachments: normalizedAttachments,
             planningValidation: isPreConfirmed ? {
               status: 'validado',
               isValidated: true,
@@ -603,7 +624,10 @@ export function getStoredAppointments(): AppointmentRequest[] {
             }
           };
         }
-        return apt;
+        return {
+          ...apt,
+          pdfAttachments: normalizedAttachments
+        };
       });
     }
   } catch (e) {

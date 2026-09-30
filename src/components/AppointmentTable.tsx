@@ -58,6 +58,7 @@ export const AppointmentTable: React.FC<AppointmentTableProps> = ({
   const [plantFilter, setPlantFilter] = useState<string>('todos');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [isCalendarOpen, setIsCalendarOpen] = useState<boolean>(false);
+  const [confirmDeleteApt, setConfirmDeleteApt] = useState<AppointmentRequest | null>(null);
   const [sortField, setSortField] = useState<'createdAt' | 'date' | 'pallets'>('date');
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -664,6 +665,16 @@ export const AppointmentTable: React.FC<AppointmentTableProps> = ({
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                         )}
+                        {currentUser.role === 'admin' && onDeleteAppointment && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteApt(apt)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                            title="Eliminar Cita (Exclusivo Administrador)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -975,16 +986,13 @@ export const AppointmentTable: React.FC<AppointmentTableProps> = ({
                         </button>
                       )}
 
-                      {/* Admin Delete */}
+                      {/* Admin Delete - Exclusivo para ADMINISTRADOR */}
                       {currentUser.role === 'admin' && onDeleteAppointment && (
                         <button
-                          onClick={() => {
-                            if (window.confirm(`¿Desea eliminar la cita ${apt.ticketCode}?`)) {
-                              onDeleteAppointment(apt.id);
-                            }
-                          }}
+                          type="button"
+                          onClick={() => setConfirmDeleteApt(apt)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
-                          title="Eliminar Expediente"
+                          title="Eliminar Expediente (Exclusivo Administrador)"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1175,6 +1183,18 @@ export const AppointmentTable: React.FC<AppointmentTableProps> = ({
                         <Mail className="w-4 h-4" />
                       </button>
                     )}
+
+                    {/* Admin Delete - Exclusivo ADMINISTRADOR */}
+                    {currentUser.role === 'admin' && onDeleteAppointment && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteApt(apt)}
+                        className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg border border-red-200 transition"
+                        title="Eliminar Expediente (Exclusivo Administrador)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5">
@@ -1212,6 +1232,57 @@ export const AppointmentTable: React.FC<AppointmentTableProps> = ({
           })
         )}
       </div>
+
+      {/* Admin-Only Delete Confirmation Modal */}
+      {confirmDeleteApt && currentUser.role === 'admin' && onDeleteAppointment && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-[#D32F2F] text-white px-5 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4" />
+                <h3 className="text-sm font-bold">Confirmar Eliminación de Cita (Administrador)</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteApt(null)}
+                className="p-1 rounded hover:bg-white/10 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 text-xs text-slate-700">
+              <p>
+                ¿Está seguro de eliminar permanentemente la cita registrada{' '}
+                <strong className="text-slate-900">{confirmDeleteApt.ticketCode}</strong> del proveedor{' '}
+                <strong className="text-slate-900">{confirmDeleteApt.supplierName}</strong> (OC #{confirmDeleteApt.orderNumber})?
+              </p>
+              <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                Esta acción es exclusiva del perfil <strong>Administrador</strong> y actualizará de inmediato el archivo maestro Excel (<code className="font-mono text-[#00264d]">src/data/citas_gloria.xlsx</code>).
+              </p>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteApt(null)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteAppointment(confirmDeleteApt.id);
+                    setConfirmDeleteApt(null);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-[#D32F2F] hover:bg-red-700 text-white font-bold text-xs transition shadow-sm flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Sí, Eliminar Cita</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

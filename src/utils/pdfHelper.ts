@@ -14,6 +14,17 @@ export function downloadAttachment(appointment: AppointmentRequest, file: PdfAtt
     return;
   }
 
+  // If the file is stored in `src/documentos_proveedores/` and has a fileUrl
+  if (file.fileUrl) {
+    const link = document.createElement('a');
+    link.href = file.fileUrl;
+    link.download = file.name.endsWith('.pdf') ? file.name : `${file.name}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return;
+  }
+
   // Otherwise, dynamically generate a high-fidelity PDF document using jsPDF
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -175,10 +186,20 @@ export function downloadAllAttachments(appointment: AppointmentRequest): void {
   });
 }
 
-export function exportAppointmentsToXLSX(appointments: AppointmentRequest[], fileExtension: string = 'xlsx'): void {
+export function exportAppointmentsToXLSX(appointments: AppointmentRequest[], _fileExtension: string = 'xlsx'): void {
+  // Sync with the backend Excel database (`src/data/citas_gloria.xlsx`)
+  fetch('/api/appointments/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ appointments })
+  }).catch(() => {});
+
   const data = appointments.map((a) => ({
+    'ID Cita': a.id || '',
     'Código Ticket': a.ticketCode || '',
     'Estado Cita': (a.status || '').replace(/_/g, ' ').toUpperCase(),
+    'Fecha Creación': a.createdAt || '',
+    'Última Actualización': a.lastUpdated || '',
     'N° Orden Compra': a.orderNumber || '',
     'Posición SAP': a.positionNumber || '',
     'Código Material': a.materialCode || '',
@@ -191,11 +212,13 @@ export function exportAppointmentsToXLSX(appointments: AppointmentRequest[], fil
     'Correo Electrónico': a.supplierEmail || '',
     'Teléfono': a.supplierPhone || '',
     'Nivel Urgencia': a.urgency || 'Normal',
+    'Justificación Urgencia': a.urgencyJustification || '',
     'Fecha Solicitada': a.requestedDate || '',
     'Hora Solicitada': a.requestedTime || '',
     'Fecha Programada': a.scheduledDate || a.requestedDate || '',
     'Hora Programada': a.scheduledTime || a.requestedTime || '',
     'Bahía Asignada': a.reception?.dockAssigned || 'Por Asignar',
+    'Recepcionista': a.reception?.receptionistName || '',
     'Llegada Garita': a.reception?.arrivalDateTime || a.reception?.arrivedAt || '',
     'Inicio Descarga': a.reception?.unloadingStartedAt || '',
     'Término Descarga': a.reception?.attentionEndDateTime || a.reception?.unloadingFinishedAt || '',
@@ -203,18 +226,27 @@ export function exportAppointmentsToXLSX(appointments: AppointmentRequest[], fil
     'Inasistencia': a.status === 'inasistencia' || a.reception?.isNoShow ? 'SÍ' : 'NO',
     'Motivo Inasistencia': a.reception?.noShowReason || '',
     'Observaciones Recepción': a.reception?.receptionObservation || a.reception?.receptionNotes || '',
+    'OC Validada SAP (Planificación)': a.planningValidation?.isValidated ? 'SÍ' : 'NO',
+    'Validador Planificación': a.planningValidation?.validatorName || '',
+    'Notas Planificación': a.planningValidation?.notes || '',
+    'Documentos SST Aceptados': a.safetyDocumentsAcceptance?.acceptedAll ? 'SÍ (4/4)' : 'SÍ',
     'Nombre Conductor': a.driverName || '',
     'DNI Conductor': a.driverDni || '',
     'Placa Vehículo': a.vehiclePlate || '',
-    'Planta Destino': a.plantLocation || 'Planta Principal Huachipa'
+    'Planta Destino': a.plantLocation || 'Planta Principal Huachipa',
+    'Cantidad PDFs Proveedor': (a.pdfAttachments || []).length,
+    'Rutas Documentos en src': (a.pdfAttachments || []).map((p) => p.storedPath || `src/documentos_proveedores/${p.name}`).join(' | ')
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(data);
 
   // Set column widths for readability
   worksheet['!cols'] = [
+    { wch: 14 }, // ID Cita
     { wch: 16 }, // Código Ticket
     { wch: 20 }, // Estado Cita
+    { wch: 22 }, // Fecha Creación
+    { wch: 22 }, // Última Actualización
     { wch: 18 }, // N° Orden Compra
     { wch: 14 }, // Posición SAP
     { wch: 18 }, // Código Material
@@ -227,11 +259,13 @@ export function exportAppointmentsToXLSX(appointments: AppointmentRequest[], fil
     { wch: 28 }, // Correo Electrónico
     { wch: 15 }, // Teléfono
     { wch: 15 }, // Nivel Urgencia
+    { wch: 30 }, // Justificación Urgencia
     { wch: 16 }, // Fecha Solicitada
     { wch: 15 }, // Hora Solicitada
     { wch: 16 }, // Fecha Programada
     { wch: 15 }, // Hora Programada
     { wch: 30 }, // Bahía Asignada
+    { wch: 24 }, // Recepcionista
     { wch: 18 }, // Llegada Garita
     { wch: 18 }, // Inicio Descarga
     { wch: 18 }, // Término Descarga
@@ -239,16 +273,73 @@ export function exportAppointmentsToXLSX(appointments: AppointmentRequest[], fil
     { wch: 15 }, // Inasistencia
     { wch: 30 }, // Motivo Inasistencia
     { wch: 32 }, // Observaciones Recepción
+    { wch: 22 }, // OC Validada SAP
+    { wch: 24 }, // Validador Planificación
+    { wch: 30 }, // Notas Planificación
+    { wch: 20 }, // Documentos SST
     { wch: 26 }, // Nombre Conductor
     { wch: 15 }, // DNI Conductor
     { wch: 15 }, // Placa Vehículo
-    { wch: 35 }  // Planta Destino
+    { wch: 35 }, // Planta Destino
+    { wch: 18 }, // Cantidad PDFs
+    { wch: 55 }  // Rutas Documentos en src
   ];
 
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Citas y Recepción Gloria');
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Citas_Registradas');
 
-  const fileName = `Citas_Gloria_Export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  // Sheet 2: Detalle de Órdenes de Compra
+  const ocRows: Record<string, any>[] = [];
+  appointments.forEach((a) => {
+    const items = a.purchaseOrders && a.purchaseOrders.length > 0
+      ? a.purchaseOrders
+      : [{
+          id: `${a.id}-1`,
+          orderNumber: a.orderNumber,
+          positionNumber: a.positionNumber,
+          materialCode: a.materialCode,
+          materialDescription: a.materialDescription,
+          quantity: a.quantity,
+          quantityUnit: a.quantityUnit,
+          palletsCount: a.palletsCount
+        }];
+    items.forEach((po) => {
+      ocRows.push({
+        'Código Ticket': a.ticketCode,
+        'Proveedor': a.supplierName,
+        'RUC Proveedor': a.supplierRuc,
+        'N° Orden Compra': po.orderNumber,
+        'Posición SAP': po.positionNumber,
+        'Código Material': po.materialCode,
+        'Descripción Material': po.materialDescription,
+        'Cantidad': po.quantity,
+        'Unidad': po.quantityUnit,
+        'Palets': po.palletsCount,
+        'Fecha Programada': a.scheduledDate || a.requestedDate
+      });
+    });
+  });
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(ocRows), 'Ordenes_Compra_Detalle');
+
+  // Sheet 3: Documentos de Proveedores en `src/documentos_proveedores`
+  const docRows: Record<string, any>[] = [];
+  appointments.forEach((a) => {
+    (a.pdfAttachments || []).forEach((att) => {
+      docRows.push({
+        'Código Ticket': a.ticketCode,
+        'Proveedor': a.supplierName,
+        'RUC Proveedor': a.supplierRuc,
+        'Nombre Archivo': att.name,
+        'Tipo Documento': att.documentType,
+        'Tamaño (KB)': (att.sizeBytes / 1024).toFixed(1),
+        'Fecha Subida': att.uploadedAt,
+        'Ruta en Carpeta src': att.storedPath || `src/documentos_proveedores/${att.name}`
+      });
+    });
+  });
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(docRows), 'Documentos_Proveedores');
+
+  const fileName = `citas_gloria_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
   // Write file as binary blob
   const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });

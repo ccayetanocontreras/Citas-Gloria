@@ -266,17 +266,51 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
         else if (lower.includes('calidad') || lower.includes('cert')) docType = 'Certificado de Calidad';
         else if (lower.includes('packing')) docType = 'Packing List';
 
+        const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const attachId = `pdf-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+        const defaultStoredPath = `src/documentos_proveedores/${safeFileName}`;
+        const defaultFileUrl = `/api/documents/file/${encodeURIComponent(safeFileName)}`;
+
         const newAttach: PdfAttachment = {
-          id: `pdf-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          id: attachId,
           name: file.name,
           sizeBytes: file.size,
           uploadedAt: new Date().toISOString(),
           documentType: docType,
           fileDataUrl: dataUrl,
+          storedPath: defaultStoredPath,
+          fileUrl: defaultFileUrl,
           totalPages: Math.floor(Math.random() * 3) + 1
         };
 
         setAttachments(prev => [...prev, newAttach]);
+
+        // Persist immediately in `src/documentos_proveedores/` on the server
+        fetch('/api/documents/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: attachId,
+            name: file.name,
+            documentType: docType,
+            sizeBytes: file.size,
+            fileDataUrl: dataUrl,
+            totalPages: newAttach.totalPages
+          })
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((saved) => {
+            if (saved && saved.storedPath) {
+              setAttachments((prev) =>
+                prev.map((item) =>
+                  item.id === attachId
+                    ? { ...item, storedPath: saved.storedPath, fileUrl: saved.fileUrl }
+                    : item
+                )
+              );
+            }
+          })
+          .catch(() => {});
       };
       reader.readAsDataURL(file);
     }
@@ -950,7 +984,7 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 mb-3">
-              Suba los documentos que respaldan la entrega: Guía de Remisión (Remitente y Transportista), Factura Comercial, Certificado de Calidad o Packing List. Formato PDF.
+              Suba los documentos que respaldan la entrega: Guía de Remisión (Remitente y Transportista), Factura Comercial, Certificado de Calidad o Packing List. Todos los archivos subidos se almacenan dentro de la aplicación web en la carpeta <code className="font-mono font-bold text-[#00264d] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">src/documentos_proveedores/</code>.
             </p>
 
             {/* Drag & Drop Box */}
@@ -1003,10 +1037,14 @@ export const SupplierFormModal: React.FC<SupplierFormModalProps> = ({
                         <p className="text-xs font-bold text-slate-900 truncate">
                           {file.name}
                         </p>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                        <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
                           <span>{(file.sizeBytes / 1024).toFixed(1)} KB</span>
                           <span>•</span>
                           <span className="text-blue-700 font-semibold">{file.documentType}</span>
+                          <span>•</span>
+                          <span className="font-mono text-emerald-700 font-semibold">
+                            Guardado en: {file.storedPath || `src/documentos_proveedores/${file.name}`}
+                          </span>
                         </div>
                       </div>
                     </div>
